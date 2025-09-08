@@ -18,12 +18,12 @@ const BigButton: React.FC<{ onClick: () => void; children: React.ReactNode; clas
 const HomeScreen: React.FC<{ onStart: () => void; onShowHistory: () => void; onShowPrivacy: () => void; }> = ({ onStart, onShowHistory, onShowPrivacy }) => (
   <div className="p-6 flex flex-col h-full">
     <div className="flex-grow flex flex-col items-center justify-center text-center">
-      <h1 className="text-5xl sm:text-6xl font-extrabold text-white mb-4 whitespace-nowrap">
+      <h1 className="text-4xl sm:text-5xl font-extrabold text-white mb-4">
         <span className="text-yellow-500">Tennis</span> Power Ups
       </h1>
       <p className="text-sm text-gray-400">Criado por Christopher de Assis Pereira</p>
       <p className="text-xs text-gray-500 mt-1">CAP Systems Jogos Híbridos</p>
-      <p className="text-xs text-gray-700 font-mono mb-12">V1.1</p>
+      <p className="text-xs text-gray-700 font-mono mb-12">V1.2</p>
 
       <div className="w-full space-y-4">
           <BigButton onClick={onStart}>Iniciar Partida</BigButton>
@@ -54,7 +54,7 @@ const LiveScreen: React.FC<{
         Permissões ativas
       </div>
     }
-    <div className="grid grid-cols-2 gap-4 mb-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
       <StatCard icon={<StepIcon />} title="Passos" value={stats.steps.toString()} unit="" colorClass="border-l-4 border-blue-400" />
       <StatCard icon={<DistanceIcon />} title="Distância" value={(stats.distanceMeters / 1000).toFixed(2)} unit="km" colorClass="border-l-4 border-green-400" />
       <StatCard icon={<DistanceIcon />} title="Distância" value={stats.distanceMeters.toFixed(0)} unit="m" colorClass="border-l-4 border-green-400" />
@@ -90,7 +90,7 @@ const HistoryScreen: React.FC<{ matches: Match[]; onClear: () => void; onBack: (
                 [...matches].reverse().map(match => (
                     <div key={match.id} className="bg-gray-800 p-4 rounded-lg">
                         <p className="font-bold">{new Date(match.startedAt).toLocaleString('pt-BR')}</p>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm mt-2">
                             <p><strong>Distância:</strong> {(match.distanceMeters / 1000).toFixed(2)} km</p>
                             <p><strong>Passos:</strong> {match.steps}</p>
                             <p><strong>Vel. Máx:</strong> {match.topSpeedKmh.toFixed(1)} km/h</p>
@@ -152,6 +152,11 @@ const App: React.FC = () => {
   };
 
   const processLocation = useCallback((position: GeolocationPosition) => {
+    // Filter 1: Ignore updates that are not accurate enough
+    if (position.coords.accuracy > 35) {
+        return;
+    }
+
     const newPoint: LocationPoint = {
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,
@@ -163,17 +168,21 @@ const App: React.FC = () => {
       const dist = haversineDistance(lastPositionRef.current, newPoint);
       const timeDeltaS = (newPoint.timestamp - lastPositionRef.current.timestamp) / 1000;
 
-      if (timeDeltaS > 0 && dist > 0.5) { // Ignore tiny movements
-        const speedKmh = (dist / timeDeltaS) * 3.6;
+      // Filter 2: Ignore small time/distance deltas to reduce noise when stationary
+      if (timeDeltaS < 1 || dist < 1) {
+        return;
+      }
+      
+      const speedKmh = (dist / timeDeltaS) * 3.6;
 
-        if (speedKmh < C.MAX_REALISTIC_SPEED_KMH) {
+      // Filter 3: Ignore unrealistic speeds (GPS jumps)
+      if (speedKmh < C.MAX_REALISTIC_SPEED_KMH) {
           setDistanceMeters(prev => prev + dist);
           distanceSinceLastRareRef.current += dist;
           setCurrentSpeedKmh(speedKmh);
           if (speedKmh > topSpeedKmh) {
             setTopSpeedKmh(speedKmh);
           }
-        }
       }
     }
     lastPositionRef.current = newPoint;
@@ -196,41 +205,40 @@ const App: React.FC = () => {
   }, []);
 
   const requestPermissions = async () => {
+    let finalGeo: PermissionStatus = 'denied';
+    let finalMotion: PermissionStatus = 'denied';
+
     // Geolocation
     try {
         const geoStatus = await navigator.permissions.query({ name: 'geolocation' });
-        setPermissions(p => ({ ...p, geo: geoStatus.state }));
-        if (geoStatus.state === 'prompt') {
-            await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 }));
-            const newGeoStatus = await navigator.permissions.query({ name: 'geolocation' });
-            setPermissions(p => ({ ...p, geo: newGeoStatus.state }));
+        if (geoStatus.state === 'granted') {
+            finalGeo = 'granted';
+        } else if (geoStatus.state === 'prompt') {
+            await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 }));
+            finalGeo = 'granted';
         }
     } catch (error) {
         console.warn("Geolocation permission denied or timed out.");
-        setPermissions(p => ({ ...p, geo: 'denied' }));
     }
 
-    // Device Motion (requires user interaction, so we check for permission name)
+    // Device Motion
     // @ts-ignore: Non-standard permission name
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         try {
             // @ts-ignore
             const motionStatus = await DeviceMotionEvent.requestPermission();
             if (motionStatus === 'granted') {
-                setPermissions(p => ({ ...p, motion: 'granted' }));
-                window.addEventListener('devicemotion', processMotion);
-            } else {
-                setPermissions(p => ({ ...p, motion: 'denied' }));
+                finalMotion = 'granted';
             }
         } catch (error) {
             console.warn("Device Motion permission denied.");
-            setPermissions(p => ({ ...p, motion: 'denied' }));
         }
-    } else {
-        // For non-iOS 13+ browsers
-        window.addEventListener('devicemotion', processMotion);
-        setPermissions(p => ({ ...p, motion: 'granted' }));
+    } else if (typeof DeviceMotionEvent !== 'undefined') {
+        // For non-iOS 13+ browsers that don't need explicit permission
+        finalMotion = 'granted';
     }
+
+    setPermissions({ geo: finalGeo, motion: finalMotion });
   };
 
   const startMatch = async () => {
@@ -277,32 +285,38 @@ const App: React.FC = () => {
       }
   };
 
+  // Main effect for sensor listeners
   useEffect(() => {
     if (!sessionActive) {
-      if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
+      if (watchIdRef.current) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
       window.removeEventListener('devicemotion', processMotion);
-      watchIdRef.current = null;
       return;
     }
 
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      processLocation,
-      (err) => console.error("Geolocation Error", err),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-    );
-    
-    // For browsers not requiring explicit permission grant
-    // @ts-ignore
-    if(typeof DeviceMotionEvent.requestPermission !== 'function') {
+    // Start geolocation watch if permission granted
+    if (permissions.geo === 'granted') {
+        watchIdRef.current = navigator.geolocation.watchPosition(
+            processLocation,
+            (err) => console.error("Geolocation Error", err),
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+        );
+    }
+
+    // Start motion listener if permission granted
+    if (permissions.motion === 'granted') {
         window.addEventListener('devicemotion', processMotion);
     }
     
     return () => {
-      if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
+      if (watchIdRef.current) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
       window.removeEventListener('devicemotion', processMotion);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionActive, processLocation, processMotion]);
+  }, [sessionActive, permissions.geo, permissions.motion, processLocation, processMotion]);
 
 
   // Reward Logic

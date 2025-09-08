@@ -1,0 +1,7 @@
+{
+  "name": "Tennis Power Ups",
+  "description": "Tennis Power Ups is an app to track physical activity during a tennis match, rewarding users with collectible cards based on performance milestones. It uses device sensors to monitor steps, distance, and speed, storing all data locally for privacy.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

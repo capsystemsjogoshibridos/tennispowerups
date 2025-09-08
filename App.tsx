@@ -23,7 +23,7 @@ const HomeScreen: React.FC<{ onStart: () => void; onShowHistory: () => void; onS
       </h1>
       <p className="text-sm text-gray-400">Criado por Christopher de Assis Pereira</p>
       <p className="text-xs text-gray-500 mt-1">CAP Systems Jogos Híbridos</p>
-      <p className="text-xs text-gray-700 font-mono mb-12">V1.2</p>
+      <p className="text-xs text-gray-700 font-mono mb-12">V1.3</p>
 
       <div className="w-full space-y-4">
           <BigButton onClick={onStart}>Iniciar Partida</BigButton>
@@ -34,7 +34,7 @@ const HomeScreen: React.FC<{ onStart: () => void; onShowHistory: () => void; onS
     </div>
     <div className="space-y-4">
       <div className="text-center text-gray-500 text-xs p-2">
-        <p>Aviso de segurança: não olhe para o app enquanto joga tênis. Você pode levar pontos tanto no set quanto na vida real, caso leve um tombo.</p>
+        <p>Aviso de segurança: não olhe para o app enquanto joga tênis. Você pode levar pontos tanto no set quanto na vida real, caso caia em quadra</p>
         <p><a href="#" onClick={(e) => { e.preventDefault(); onShowPrivacy(); }} className="underline">Sobre & Privacidade</a></p>
       </div>
     </div>
@@ -45,37 +45,44 @@ const LiveScreen: React.FC<{
   stats: { steps: number; distanceMeters: number; topSpeedKmh: number; cards: Cards; };
   events: string[];
   permissions: { geo: PermissionStatus; motion: PermissionStatus; };
+  motionSensorStatus: 'idle' | 'checking' | 'active' | 'unavailable';
   onEnd: () => void;
-}> = ({ stats, events, permissions, onEnd }) => (
-  <div className="p-6 flex flex-col h-full">
-    <h2 className="text-3xl font-bold mb-4">Partida em Andamento</h2>
-    { (permissions.geo === 'granted' || permissions.motion === 'granted') &&
-      <div className="bg-green-500/20 text-green-300 text-xs font-bold px-3 py-1 rounded-full self-start mb-4">
-        Permissões ativas
-      </div>
-    }
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-      <StatCard icon={<StepIcon />} title="Passos" value={stats.steps.toString()} unit="" colorClass="border-l-4 border-blue-400" />
-      <StatCard icon={<DistanceIcon />} title="Distância" value={(stats.distanceMeters / 1000).toFixed(2)} unit="km" colorClass="border-l-4 border-green-400" />
-      <StatCard icon={<DistanceIcon />} title="Distância" value={stats.distanceMeters.toFixed(0)} unit="m" colorClass="border-l-4 border-green-400" />
-      <StatCard icon={<SpeedIcon />} title="Velocidade Máx." value={stats.topSpeedKmh.toFixed(1)} unit="km/h" colorClass="border-l-4 border-red-400" />
-    </div>
-    <h3 className="text-xl font-bold mb-2">Cartas Ganhas</h3>
-    <div className="grid grid-cols-3 gap-4 mb-4">
-      <StatCard icon={<CardIcon rarity="common" />} title="Comum" value={stats.cards.common.toString()} unit="" colorClass="border-l-4 border-gray-400" />
-      <StatCard icon={<CardIcon rarity="semiRare" />} title="Semi-Rara" value={stats.cards.semiRare.toString()} unit="" colorClass="border-l-4 border-blue-400" />
-      <StatCard icon={<CardIcon rarity="rare" />} title="Rara" value={stats.cards.rare.toString()} unit="" colorClass="border-l-4 border-purple-400" />
-    </div>
-    <div className="flex-grow bg-gray-800 rounded-lg p-3 text-sm space-y-2 overflow-y-auto h-32">
-      <h4 className="font-bold text-gray-300">Eventos</h4>
-      {events.length === 0 && <p className="text-gray-500">Nenhum evento ainda.</p>}
-      {events.map((event, i) => <p key={i} className="text-gray-400 leading-tight">› {event}</p>)}
-    </div>
-    <div className="mt-auto pt-4">
-      <BigButton onClick={onEnd} className="bg-red-600 hover:bg-red-700">Encerrar Partida</BigButton>
-    </div>
-  </div>
-);
+}> = ({ stats, events, permissions, motionSensorStatus, onEnd }) => {
+    const stepValue = motionSensorStatus === 'unavailable' ? 'N/D' : stats.steps.toString();
+    const stepUnit = motionSensorStatus === 'checking' ? '...' : '';
+    const stepColor = motionSensorStatus === 'unavailable' ? 'border-red-500' : 'border-blue-400';
+
+    return (
+        <div className="p-6 flex flex-col h-full">
+            <h2 className="text-3xl font-bold mb-4">Partida em Andamento</h2>
+            { (permissions.geo === 'granted' || permissions.motion === 'granted') &&
+              <div className="bg-green-500/20 text-green-300 text-xs font-bold px-3 py-1 rounded-full self-start mb-4">
+                Permissões ativas
+              </div>
+            }
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <StatCard icon={<StepIcon />} title="Passos" value={stepValue} unit={stepUnit} colorClass={`border-l-4 ${stepColor}`} />
+              <StatCard icon={<DistanceIcon />} title="Distância" value={(stats.distanceMeters / 1000).toFixed(2)} unit="km" colorClass="border-l-4 border-green-400" />
+              <StatCard icon={<DistanceIcon />} title="Distância" value={stats.distanceMeters.toFixed(0)} unit="m" colorClass="border-l-4 border-green-400" />
+              <StatCard icon={<SpeedIcon />} title="Velocidade Máx." value={stats.topSpeedKmh.toFixed(1)} unit="km/h" colorClass="border-l-4 border-red-400" />
+            </div>
+            <h3 className="text-xl font-bold mb-2">Cartas Ganhas</h3>
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <StatCard icon={<CardIcon rarity="common" />} title="Comum" value={stats.cards.common.toString()} unit="" colorClass="border-l-4 border-gray-400" />
+              <StatCard icon={<CardIcon rarity="semiRare" />} title="Semi-Rara" value={stats.cards.semiRare.toString()} unit="" colorClass="border-l-4 border-blue-400" />
+              <StatCard icon={<CardIcon rarity="rare" />} title="Rara" value={stats.cards.rare.toString()} unit="" colorClass="border-l-4 border-purple-400" />
+            </div>
+            <div className="flex-grow bg-gray-800 rounded-lg p-3 text-sm space-y-2 overflow-y-auto">
+              <h4 className="font-bold text-gray-300">Eventos</h4>
+              {events.length === 0 && <p className="text-gray-500">Nenhum evento ainda.</p>}
+              {events.map((event, i) => <p key={i} className="text-gray-400 leading-tight">› {event}</p>)}
+            </div>
+            <div className="mt-auto pt-4">
+              <BigButton onClick={onEnd} className="bg-red-600 hover:bg-red-700">Encerrar Partida</BigButton>
+            </div>
+        </div>
+    );
+};
 
 const HistoryScreen: React.FC<{ matches: Match[]; onClear: () => void; onBack: () => void; }> = ({ matches, onClear, onBack }) => (
     <div className="p-6 flex flex-col h-full">
@@ -143,16 +150,17 @@ const App: React.FC = () => {
   const lastStepTimeRef = useRef(0);
   const lastSpeedRewardAtRef = useRef(0);
   const distanceSinceLastRareRef = useRef(0);
+  const motionCheckTimeoutRef = useRef<number | null>(null);
   
   const [permissions, setPermissions] = useState<{ geo: PermissionStatus; motion: PermissionStatus }>({ geo: 'prompt', motion: 'prompt' });
+  const [motionSensorStatus, setMotionSensorStatus] = useState<'idle' | 'checking' | 'active' | 'unavailable'>('idle');
   const [isSimulating, setIsSimulating] = useState(false);
 
-  const addEvent = (message: string) => {
+  const addEvent = useCallback((message: string) => {
     setEvents(prev => [message, ...prev].slice(0, 20));
-  };
+  }, []);
 
   const processLocation = useCallback((position: GeolocationPosition) => {
-    // Filter 1: Ignore updates that are not accurate enough
     if (position.coords.accuracy > 35) {
         return;
     }
@@ -168,14 +176,12 @@ const App: React.FC = () => {
       const dist = haversineDistance(lastPositionRef.current, newPoint);
       const timeDeltaS = (newPoint.timestamp - lastPositionRef.current.timestamp) / 1000;
 
-      // Filter 2: Ignore small time/distance deltas to reduce noise when stationary
       if (timeDeltaS < 1 || dist < 1) {
         return;
       }
       
       const speedKmh = (dist / timeDeltaS) * 3.6;
 
-      // Filter 3: Ignore unrealistic speeds (GPS jumps)
       if (speedKmh < C.MAX_REALISTIC_SPEED_KMH) {
           setDistanceMeters(prev => prev + dist);
           distanceSinceLastRareRef.current += dist;
@@ -189,6 +195,13 @@ const App: React.FC = () => {
   }, [topSpeedKmh]);
 
   const processMotion = useCallback((event: DeviceMotionEvent) => {
+    if (motionCheckTimeoutRef.current) {
+        clearTimeout(motionCheckTimeoutRef.current);
+        motionCheckTimeoutRef.current = null;
+        setMotionSensorStatus('active');
+        addEvent("Sensor de passos ativo!");
+    }
+
     if (event.acceleration) {
       const { x, y, z } = event.acceleration;
       if (x === null || y === null || z === null) return;
@@ -202,13 +215,12 @@ const App: React.FC = () => {
         lastStepTimeRef.current = now;
       }
     }
-  }, []);
+  }, [addEvent]);
 
   const requestPermissions = async () => {
     let finalGeo: PermissionStatus = 'denied';
     let finalMotion: PermissionStatus = 'denied';
 
-    // Geolocation
     try {
         const geoStatus = await navigator.permissions.query({ name: 'geolocation' });
         if (geoStatus.state === 'granted') {
@@ -221,20 +233,16 @@ const App: React.FC = () => {
         console.warn("Geolocation permission denied or timed out.");
     }
 
-    // Device Motion
-    // @ts-ignore: Non-standard permission name
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
         try {
-            // @ts-ignore
-            const motionStatus = await DeviceMotionEvent.requestPermission();
+            const motionStatus = await (DeviceMotionEvent as any).requestPermission();
             if (motionStatus === 'granted') {
                 finalMotion = 'granted';
             }
         } catch (error) {
             console.warn("Device Motion permission denied.");
         }
-    } else if (typeof DeviceMotionEvent !== 'undefined') {
-        // For non-iOS 13+ browsers that don't need explicit permission
+    } else {
         finalMotion = 'granted';
     }
 
@@ -252,6 +260,7 @@ const App: React.FC = () => {
     distanceSinceLastRareRef.current = 0;
     lastSpeedRewardAtRef.current = 0;
     lastStepTimeRef.current = 0;
+    setMotionSensorStatus('idle');
     
     await requestPermissions();
 
@@ -262,6 +271,7 @@ const App: React.FC = () => {
 
   const endMatch = () => {
     setSessionActive(false);
+    setMotionSensorStatus('idle');
     
     if (steps > 0 || distanceMeters > 5) {
       const match: Match = {
@@ -285,18 +295,14 @@ const App: React.FC = () => {
       }
   };
 
-  // Main effect for sensor listeners
   useEffect(() => {
     if (!sessionActive) {
-      if (watchIdRef.current) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
+      if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
       window.removeEventListener('devicemotion', processMotion);
+      if (motionCheckTimeoutRef.current) clearTimeout(motionCheckTimeoutRef.current);
       return;
     }
 
-    // Start geolocation watch if permission granted
     if (permissions.geo === 'granted') {
         watchIdRef.current = navigator.geolocation.watchPosition(
             processLocation,
@@ -305,32 +311,35 @@ const App: React.FC = () => {
         );
     }
 
-    // Start motion listener if permission granted
     if (permissions.motion === 'granted') {
+        setMotionSensorStatus('checking');
         window.addEventListener('devicemotion', processMotion);
+        motionCheckTimeoutRef.current = window.setTimeout(() => {
+            setMotionSensorStatus('unavailable');
+            addEvent("Aviso: Sensor de passos inativo. Tente mover o celular.");
+        }, 2500);
+    } else {
+        setMotionSensorStatus('unavailable');
     }
     
     return () => {
-      if (watchIdRef.current) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
+      if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
       window.removeEventListener('devicemotion', processMotion);
+      if (motionCheckTimeoutRef.current) clearTimeout(motionCheckTimeoutRef.current);
     };
-  }, [sessionActive, permissions.geo, permissions.motion, processLocation, processMotion]);
+  }, [sessionActive, permissions.geo, permissions.motion, processLocation, processMotion, addEvent]);
 
 
   // Reward Logic
   useEffect(() => {
     if (!sessionActive) return;
 
-    // Common Card
     const expectedCommon = Math.floor(steps / C.COMMON_CARD_STEP_THRESHOLD);
     if (expectedCommon > cards.common) {
       setCards(c => ({ ...c, common: expectedCommon }));
       addEvent(`+1 Carta Comum (${steps} passos)`);
     }
 
-    // Semi-Rare Card
     const now = Date.now();
     if (currentSpeedKmh > C.SEMI_RARE_CARD_SPEED_THRESHOLD_KMH && (now - lastSpeedRewardAtRef.current > C.SEMI_RARE_CARD_COOLDOWN_MS)) {
       setCards(c => ({ ...c, semiRare: c.semiRare + 1 }));
@@ -338,7 +347,6 @@ const App: React.FC = () => {
       lastSpeedRewardAtRef.current = now;
     }
 
-    // Rare Card
     const expectedRare = Math.floor(distanceSinceLastRareRef.current / C.RARE_CARD_DISTANCE_THRESHOLD_M);
     if (expectedRare > 0) {
       setCards(c => ({...c, rare: c.rare + expectedRare }));
@@ -358,7 +366,6 @@ const App: React.FC = () => {
     setIsSimulating(true);
     addEvent('INICIANDO SIMULAÇÃO...');
     
-    // 300 steps
     let stepCount = 0;
     const stepInterval = setInterval(() => {
         setSteps(s => s + 1);
@@ -366,25 +373,23 @@ const App: React.FC = () => {
         if (stepCount >= 300) clearInterval(stepInterval);
     }, 100);
 
-    // Speed burst
     setTimeout(() => {
         setCurrentSpeedKmh(16);
         setTopSpeedKmh(t => Math.max(t, 16));
-        setTimeout(() => setCurrentSpeedKmh(5), 2000); // back to normal speed
+        setTimeout(() => setCurrentSpeedKmh(5), 2000);
     }, 5000);
-    setTimeout(() => { // another burst after cooldown
+    setTimeout(() => {
         setCurrentSpeedKmh(17);
         setTopSpeedKmh(t => Math.max(t, 17));
         setTimeout(() => setCurrentSpeedKmh(5), 2000);
     }, 16000);
 
-    // 12km distance
     let distCount = 0;
     const distInterval = setInterval(() => {
         setDistanceMeters(d => d + 20);
         distanceSinceLastRareRef.current += 20;
         distCount++;
-        if (distCount >= 600) { // 600 * 20m = 12km
+        if (distCount >= 600) {
           clearInterval(distInterval);
           addEvent('SIMULAÇÃO CONCLUÍDA.');
           setIsSimulating(false);
@@ -395,7 +400,7 @@ const App: React.FC = () => {
   const renderScreen = () => {
     switch(screen) {
       case ScreenEnum.LIVE:
-        return <LiveScreen stats={{ steps, distanceMeters, topSpeedKmh, cards }} events={events} onEnd={endMatch} permissions={permissions} />;
+        return <LiveScreen stats={{ steps, distanceMeters, topSpeedKmh, cards }} events={events} onEnd={endMatch} permissions={permissions} motionSensorStatus={motionSensorStatus} />;
       case ScreenEnum.HISTORY:
         return <HistoryScreen matches={appState.history} onClear={clearHistory} onBack={() => setScreen(ScreenEnum.HOME)} />;
       case ScreenEnum.PRIVACY:
@@ -409,7 +414,6 @@ const App: React.FC = () => {
   return (
     <div className="relative h-[100dvh] max-w-md mx-auto bg-green-950 font-sans flex flex-col">
        {
-        // This is a development-only feature
         process.env.NODE_ENV !== 'production' && (
           <div className="absolute top-2 right-2 z-10">
             <button onClick={runSimulation} disabled={isSimulating} className="bg-purple-600 text-white px-2 py-1 text-xs rounded disabled:opacity-50">
